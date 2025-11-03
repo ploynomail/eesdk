@@ -85,7 +85,8 @@ func (c *Client) Close() error {
 }
 
 // RequestCertificate 请求证书
-func (c *Client) RequestCertificate(ctx context.Context, req *CertificateRequest) (*CertificateResponse, error) {
+func (c *Client) RequestCertificate(req *CertificateRequest) (*CertificateResponse, error) {
+	ctx := context.Background()
 	// 转换请求
 	domainReq := &domain.CertificateRequest{
 		PublicKey:    req.PublicKey,
@@ -112,27 +113,25 @@ func (c *Client) RequestCertificate(ctx context.Context, req *CertificateRequest
 	return &CertificateResponse{
 		SignerCert:          resp.SignerCert,
 		EncCert:             resp.EncCert,
+		HyperSignerCert:     resp.HyperSignerCert,
+		HyperEncCert:        resp.HyperEncCert,
 		EncryptedPrivateKey: resp.EncryptedPrivateKey,
-		SerialNumber:        resp.SerialNumber,
-		IssuedAt:            resp.IssuedAt,
-		ExpiresAt:           resp.ExpiresAt,
 	}, nil
 }
 
 // RequestCertificateWithPKCS10 使用PKCS#10请求证书
-func (c *Client) RequestCertificateWithPKCS10(ctx context.Context, csrBytes []byte) (*CertificateResponse, error) {
+func (c *Client) RequestCertificateWithPKCS10(csrBytes []byte) (*CertificateResponse, error) {
+	ctx := context.Background()
 	resp, err := c.pkiClient.RequestCertificateWithPKCS10(ctx, csrBytes)
 	if err != nil {
 		return nil, err
 	}
-
 	return &CertificateResponse{
 		SignerCert:          resp.SignerCert,
 		EncCert:             resp.EncCert,
+		HyperSignerCert:     resp.HyperSignerCert,
+		HyperEncCert:        resp.HyperEncCert,
 		EncryptedPrivateKey: resp.EncryptedPrivateKey,
-		SerialNumber:        resp.SerialNumber,
-		IssuedAt:            resp.IssuedAt,
-		ExpiresAt:           resp.ExpiresAt,
 	}, nil
 }
 
@@ -155,7 +154,8 @@ func (c *Client) GenerateCSR(req *CertificateRequest, privateKey crypto.Signer) 
 }
 
 // RevokeCertificate 撤销证书
-func (c *Client) RevokeCertificate(ctx context.Context, serialNumber string, reason string) error {
+func (c *Client) RevokeCertificate(serialNumber string, reason string) error {
+	ctx := context.Background()
 	return c.pkiClient.RevokeCertificate(ctx, &domain.RevokeRequest{
 		SerialNumber: serialNumber,
 		Reason:       reason,
@@ -163,6 +163,7 @@ func (c *Client) RevokeCertificate(ctx context.Context, serialNumber string, rea
 }
 
 // ConfirmCertificate 确认证书
-func (c *Client) ConfirmCertificate(ctx context.Context, certHash []byte, certReqId int32) error {
+func (c *Client) ConfirmCertificate(certHash []byte, certReqId int32) error {
+	ctx := context.Background()
 	return c.pkiClient.ConfirmCertificate(ctx, certHash, certReqId)
 }

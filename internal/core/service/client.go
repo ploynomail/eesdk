@@ -1,19 +1,20 @@
 package service
 
 import (
+	pb "commonprotocol/pkimessage"
+	commonutils "commonprotocol/utils"
 	"context"
 	"crypto"
 	"crypto/rand"
 	"crypto/x509/pkix"
+	"ee-sdk/internal/core/domain"
+	"ee-sdk/internal/core/repository"
 	"encoding/asn1"
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
+	"math/big"
 	"time"
-
-	pb "commonprotocol/pkimessage"
-	"ee-sdk/internal/core/domain"
-	"ee-sdk/internal/core/repository"
 
 	utils "commonprotocol/utils"
 
@@ -70,6 +71,11 @@ func (c *PKIClient) RequestCertificate(ctx context.Context, req *domain.Certific
 	if err != nil {
 		return nil, fmt.Errorf("send PKI message: %w", err)
 	}
+	if respMsg.Body != nil {
+		if respMsg.Body.GetError() != nil {
+			return nil, fmt.Errorf("received error response: %s", respMsg.Body.GetError().ErrorDetails)
+		}
+	}
 	// 验证响应保护
 	if err := c.verifyProtection(respMsg); err != nil {
 		return nil, fmt.Errorf("verify response protection: %w", err)
@@ -118,9 +124,13 @@ func (c *PKIClient) RequestCertificateWithPKCS10(ctx context.Context, p10Request
 // RevokeCertificate 撤销证书
 func (c *PKIClient) RevokeCertificate(ctx context.Context, req *domain.RevokeRequest) error {
 	// 构建撤销请求
+	snStr, ok := big.NewInt(0).SetString(req.SerialNumber, 10)
+	if !ok {
+		return fmt.Errorf("invalid serial number: %s", req.SerialNumber)
+	}
 	revDetails := &pb.RevDetails{
 		CertDetails: &pb.CertTemplate{
-			SerialNumber: []byte(req.SerialNumber),
+			SerialNumber: snStr.Bytes(),
 		},
 	}
 
@@ -276,7 +286,7 @@ func (c *PKIClient) buildKemExtension(kemKey []byte) ([]byte, error) {
 		Critical bool `asn1:"optional"`
 		Value    []byte
 	}{
-		Id:    asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 501}, // KEM公钥扩展OID
+		Id:    commonutils.OidExtensionKemPublicKey,
 		Value: kemKey,
 	}
 
@@ -297,7 +307,7 @@ func (c *PKIClient) buildControls(caCertID, templateID uint) *pb.Controls {
 			Type  asn1.ObjectIdentifier
 			Value int
 		}{
-			Type:  asn1.ObjectIdentifier{1, 2, 3, 4, 1},
+			Type:  commonutils.CACertIDOid,
 			Value: int(caCertID),
 		}
 		atvBytes, _ := asn1.Marshal(atv)
@@ -310,7 +320,7 @@ func (c *PKIClient) buildControls(caCertID, templateID uint) *pb.Controls {
 			Type  asn1.ObjectIdentifier
 			Value int
 		}{
-			Type:  asn1.ObjectIdentifier{1, 2, 3, 4, 2},
+			Type:  commonutils.TemplateIDOid,
 			Value: int(templateID),
 		}
 		atvBytes, _ := asn1.Marshal(atv)
@@ -441,7 +451,6 @@ func (c *PKIClient) verifyProtection(msg *pb.PKIMessage) error {
 	if sharedSecret == nil {
 		return fmt.Errorf("shared secret not configured or shared secret is nil")
 	}
-
 	// 5. 验证 MAC
 	if !pb.VerifyMAC(protectedData, msg.Protection, pbmParam.PbmParameter, sharedSecret) {
 		return fmt.Errorf("HMAC verification failed")
@@ -478,61 +487,83 @@ func (c *PKIClient) parseCertResponse(msg *pb.PKIMessage) (*domain.CertificateRe
 	if len(certRepMsg.Response) == 0 {
 		return nil, fmt.Errorf("no certificate response")
 	}
-
-	resp := certRepMsg.Response[0]
-
-	// 检查状态
-	if resp.Status.Status != 0 {
-		return nil, fmt.Errorf("certificate request failed: %s", resp.Status.StatusString)
-	}
-
-	// 解析证书
-	certPair := resp.CertifiedKeyPair
-	if certPair == nil || certPair.CertOrEncCert == nil {
-		return nil, fmt.Errorf("no certificate in response")
-	}
-
+	var result *domain.CertificateResponse = &domain.CertificateResponse{}
 	var signerCert []byte
-	switch cert := certPair.CertOrEncCert.Choice.(type) {
-	case *pb.CertOrEncCert_Certificate:
-		signerCert = c.extractCertBytes(cert.Certificate)
-	default:
-		return nil, fmt.Errorf("unexpected certificate type")
-	}
+	var encCert []byte
+	var hyperSignerCert []byte
+	var hyperEncCert []byte
+	var PrivateKey []byte
+	for _, resp := range certRepMsg.Response {
+		// 检查状态
+		if resp.Status.Status != 0 {
+			return nil, fmt.Errorf("certificate request failed: %s", resp.Status.StatusString)
+		}
 
-	// 解析证书以获取序列号和有效期
-	parsedCert, err := c.parseCertificate(signerCert)
-	if err != nil {
-		return nil, fmt.Errorf("parse certificate: %w", err)
-	}
+		// 解析证书
+		certPair := resp.CertifiedKeyPair
+		if certPair == nil || certPair.CertOrEncCert == nil {
+			return nil, fmt.Errorf("no certificate in response")
+		}
 
-	result := &domain.CertificateResponse{
-		SignerCert:   signerCert,
-		SerialNumber: parsedCert.SerialNumber.String(),
-		IssuedAt:     parsedCert.NotBefore,
-		ExpiresAt:    parsedCert.NotAfter,
-	}
+		switch cert := certPair.CertOrEncCert.Choice.(type) {
+		case *pb.CertOrEncCert_Certificate:
+			switch certType := cert.Certificate.Cert.(type) {
+			case *pb.CMPCertificate_X509V3PkCert:
+				signerCert = certType.X509V3PkCert
+			case *pb.CMPCertificate_Sm2Cert:
+				signerCert = certType.Sm2Cert
+			case *pb.CMPCertificate_Sm2EncCert:
+				encCert = certType.Sm2EncCert
+			case *pb.CMPCertificate_Sm2HyperCert:
+				hyperSignerCert = certType.Sm2HyperCert
+			case *pb.CMPCertificate_Sm2EncHyperCert:
+				hyperEncCert = certType.Sm2EncHyperCert
+			default:
+				return nil, fmt.Errorf("unexpected certificate type")
+			}
 
-	// 提取加密私钥
-	if certPair.PrivateKey != nil {
-		result.EncryptedPrivateKey = certPair.PrivateKey.EncValue
-	}
+		default:
+			return nil, fmt.Errorf("unexpected certificate type")
+		}
 
+		// 提取加密私钥
+		if certPair.PrivateKey != nil {
+			var encryptedValue domain.EncryptedValue
+			encryptedValue.EncSymmKey = asn1.BitString{Bytes: certPair.PrivateKey.EncSymmKey, BitLength: len(certPair.PrivateKey.EncSymmKey) * 8}
+			encryptedValue.EncValue = asn1.BitString{Bytes: certPair.PrivateKey.EncValue, BitLength: len(certPair.PrivateKey.EncValue) * 8}
+			encPrivKeyBytes, err := asn1.Marshal(encryptedValue)
+			if err != nil {
+				return nil, fmt.Errorf("marshal encrypted private key: %w", err)
+			}
+			PrivateKey = encPrivKeyBytes
+		}
+	}
+	result.SignerCert = signerCert
+	result.EncCert = encCert
+	result.HyperSignerCert = hyperSignerCert
+	result.HyperEncCert = hyperEncCert
+	result.EncryptedPrivateKey = PrivateKey
 	return result, nil
 }
 
 // extractCertBytes 提取证书字节
 func (c *PKIClient) extractCertBytes(cert *pb.CMPCertificate) []byte {
+	var certBytes []byte
 	switch certType := cert.Cert.(type) {
 	case *pb.CMPCertificate_X509V3PkCert:
-		return certType.X509V3PkCert
+		certBytes = certType.X509V3PkCert
 	case *pb.CMPCertificate_Sm2Cert:
-		return certType.Sm2Cert
+		certBytes = certType.Sm2Cert
+	case *pb.CMPCertificate_Sm2EncCert:
+		certBytes = certType.Sm2EncCert
 	case *pb.CMPCertificate_Sm2HyperCert:
-		return certType.Sm2HyperCert
+		certBytes = certType.Sm2HyperCert
+	case *pb.CMPCertificate_Sm2EncHyperCert:
+		certBytes = certType.Sm2EncHyperCert
 	default:
 		return nil
 	}
+	return certBytes
 }
 
 // parseCertificate 解析证书

@@ -32,9 +32,7 @@ type Extension struct {
 type CertificateResponse struct {
 	SignerCert          []byte
 	EncCert             []byte
+	HyperSignerCert     []byte
+	HyperEncCert        []byte
 	EncryptedPrivateKey []byte
-	SerialNumber        string
-	IssuedAt            interface{}
-	ExpiresAt           interface{}
-	ExtraCerts          [][]byte
 }

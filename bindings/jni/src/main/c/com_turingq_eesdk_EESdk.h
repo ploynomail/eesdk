@@ -10,10 +10,10 @@ extern "C" {
 /*
  * Class:     com_turingq_eesdk_EESdk
  * Method:    createClient
- * Signature: (Ljava/lang/String;Ljava/lang/String;II)J
+ * Signature: (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)J
  */
 JNIEXPORT jlong JNICALL Java_com_turingq_eesdk_EESdk_createClient
-  (JNIEnv *, jclass, jstring, jstring, jint, jint);
+  (JNIEnv *, jclass, jstring, jstring, jstring);
 
 /*
  * Class:     com_turingq_eesdk_EESdk
@@ -25,19 +25,35 @@ JNIEXPORT void JNICALL Java_com_turingq_eesdk_EESdk_destroyClient
 
 /*
  * Class:     com_turingq_eesdk_EESdk
- * Method:    executeRequest
- * Signature: (JLjava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lcom/turingq/eesdk/Response;
+ * Method:    requestCertificate
+ * Signature: (JLcom/turingq/eesdk/CertificateRequest;)Lcom/turingq/eesdk/CertificateResponse;
  */
-JNIEXPORT jobject JNICALL Java_com_turingq_eesdk_EESdk_executeRequest
-  (JNIEnv *, jclass, jlong, jstring, jstring, jstring);
+JNIEXPORT jobject JNICALL Java_com_turingq_eesdk_EESdk_requestCertificate
+  (JNIEnv *, jclass, jlong, jobject);
 
 /*
  * Class:     com_turingq_eesdk_EESdk
- * Method:    healthCheck
- * Signature: (J)Z
+ * Method:    requestCertificateWithPKCS10
+ * Signature: (J[B)Lcom/turingq/eesdk/CertificateResponse;
  */
-JNIEXPORT jboolean JNICALL Java_com_turingq_eesdk_EESdk_healthCheck
-  (JNIEnv *, jclass, jlong);
+JNIEXPORT jobject JNICALL Java_com_turingq_eesdk_EESdk_requestCertificateWithPKCS10
+  (JNIEnv *, jclass, jlong, jbyteArray);
+
+/*
+ * Class:     com_turingq_eesdk_EESdk
+ * Method:    revokeCertificate
+ * Signature: (JLjava/lang/String;Ljava/lang/String;)Z
+ */
+JNIEXPORT jboolean JNICALL Java_com_turingq_eesdk_EESdk_revokeCertificate
+  (JNIEnv *, jclass, jlong, jstring, jstring);
+
+/*
+ * Class:     com_turingq_eesdk_EESdk
+ * Method:    confirmCertificate
+ * Signature: (J[BI)Z
+ */
+JNIEXPORT jboolean JNICALL Java_com_turingq_eesdk_EESdk_confirmCertificate
+  (JNIEnv *, jclass, jlong, jbyteArray, jint);
 
 #ifdef __cplusplus
 }

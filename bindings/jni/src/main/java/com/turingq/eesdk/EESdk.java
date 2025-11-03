@@ -15,64 +15,81 @@ public class EESdk {
     }
     
     // Native方法声明
-    private static native long createClient(String baseURL, String apiKey, int timeout, int retryCount);
+    private static native long createClient(String serverAddr, String accessId, String accessKey);
     private static native void destroyClient(long clientPtr);
-    private static native Response executeRequest(long clientPtr, String method, String path, String body);
-    private static native boolean healthCheck(long clientPtr);
+    private static native CertificateResponse requestCertificate(long clientPtr, CertificateRequest request);
+    private static native CertificateResponse requestCertificateWithPKCS10(long clientPtr, byte[] csr);
+    private static native boolean revokeCertificate(long clientPtr, String serialNumber, String reason);
+    private static native boolean confirmCertificate(long clientPtr, byte[] certHash, int certReqId);
     
     private long clientPtr;
     
     /**
      * 构造函数
      * 
-     * @param baseURL API基础URL
-     * @param apiKey API密钥
-     * @param timeout 超时时间（秒）
-     * @param retryCount 重试次数
+     * @param serverAddr 服务器地址
+     * @param accessId 访问ID
+     * @param accessKey 访问密钥
      */
-    public EESdk(String baseURL, String apiKey, int timeout, int retryCount) {
-        this.clientPtr = createClient(baseURL, apiKey, timeout, retryCount);
+    public EESdk(String serverAddr, String accessId, String accessKey) {
+        this.clientPtr = createClient(serverAddr, accessId, accessKey);
         if (this.clientPtr == 0) {
             throw new RuntimeException("无法创建SDK客户端");
         }
     }
     
     /**
-     * 执行HTTP请求
+     * 请求证书
      * 
-     * @param method HTTP方法
-     * @param path 请求路径
-     * @param body 请求体（可选）
-     * @return Response对象
+     * @param request 证书请求
+     * @return CertificateResponse对象
      */
-    public Response executeRequest(String method, String path, String body) {
+    public CertificateResponse requestCertificate(CertificateRequest request) {
         if (clientPtr == 0) {
             throw new IllegalStateException("客户端已被销毁");
         }
-        return executeRequest(clientPtr, method, path, body);
+        return requestCertificate(clientPtr, request);
     }
     
     /**
-     * 执行HTTP请求（无请求体）
+     * 使用PKCS#10请求证书
      * 
-     * @param method HTTP方法
-     * @param path 请求路径
-     * @return Response对象
+     * @param csr PKCS#10 CSR
+     * @return CertificateResponse对象
      */
-    public Response executeRequest(String method, String path) {
-        return executeRequest(method, path, null);
-    }
-    
-    /**
-     * 健康检查
-     * 
-     * @return 是否健康
-     */
-    public boolean healthCheck() {
+    public CertificateResponse requestCertificateWithPKCS10(byte[] csr) {
         if (clientPtr == 0) {
             throw new IllegalStateException("客户端已被销毁");
         }
-        return healthCheck(clientPtr);
+        return requestCertificateWithPKCS10(clientPtr, csr);
+    }
+    
+    /**
+     * 撤销证书
+     * 
+     * @param serialNumber 证书序列号
+     * @param reason 撤销原因
+     * @return 是否成功
+     */
+    public boolean revokeCertificate(String serialNumber, String reason) {
+        if (clientPtr == 0) {
+            throw new IllegalStateException("客户端已被销毁");
+        }
+        return revokeCertificate(clientPtr, serialNumber, reason);
+    }
+    
+    /**
+     * 确认证书
+     * 
+     * @param certHash 证书哈希
+     * @param certReqId 证书请求ID
+     * @return 是否成功
+     */
+    public boolean confirmCertificate(byte[] certHash, int certReqId) {
+        if (clientPtr == 0) {
+            throw new IllegalStateException("客户端已被销毁");
+        }
+        return confirmCertificate(clientPtr, certHash, certReqId);
     }
     
     /**

@@ -1,9 +1,5 @@
 package domain
 
-import (
-	"time"
-)
-
 type ClientConfig struct {
 	AccessId  string // 访问ID
 	AccessKey string // 访问密钥
@@ -48,14 +44,12 @@ type CertificateResponse struct {
 	SignerCert []byte
 	// 加密证书（可选）
 	EncCert []byte
+
+	HyperSignerCert []byte
+
+	HyperEncCert []byte
 	// 加密的私钥信封数据（可选）
 	EncryptedPrivateKey []byte
-	// 序列号
-	SerialNumber string
-	// 颁发时间
-	IssuedAt time.Time
-	// 有效期至
-	ExpiresAt time.Time
 }
 
 // PKIMessageRequest PKI消息请求

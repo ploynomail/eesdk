@@ -17,6 +17,9 @@ build-c:
 build-jni: build-c
 	@echo "Building JNI bindings..."
 	mkdir -p $(LIB_DIR) $(INCLUDE_DIR)
+	# 清理旧的class文件和头文件
+	rm -f bindings/jni/src/main/java/com/turingq/eesdk/*.class
+	rm -f bindings/jni/src/main/c/*.h
 	# 生成JNI头文件
 	javac bindings/jni/src/main/java/com/turingq/eesdk/*.java && javac -h bindings/jni/src/main/c bindings/jni/src/main/java/com/turingq/eesdk/*.java
 	# 编译JNI共享库
@@ -27,7 +30,7 @@ build-jni: build-c
 		-L$(LIB_DIR) \
 		-o $(LIB_DIR)/libee_sdk_jni.so \
 		bindings/jni/src/main/c/*.c $(LIB_DIR)/libee_sdk.a \
-		-lpthread -lm -ldl
+		-loqs -lpthread -lm -ldl
 
 	# 构建Java包
 	cd bindings/jni && mvn clean package
@@ -37,6 +40,7 @@ build-python: build-c
 	@echo "Building Python bindings..."
 	cp bindings/python/ee_sdk.py $(BUILD_DIR)/
 	cp $(LIB_DIR)/libee_sdk.so $(BUILD_DIR)/
+
 
 examples: build-go build-c build-python build-jni
 	@echo "Running examples..."
@@ -69,7 +73,7 @@ example-java: build-jni
 	@echo "Running Java example..."
 	cd examples/java && \
 		javac -cp ../../build/eesdk*.jar Main.java && \
-		java -Djava.library.path=../../build/lib -cp "../../build/*:." Main
+		LD_LIBRARY_PATH=../../build/lib:$$LD_LIBRARY_PATH java -Djava.library.path=../../build/lib -cp "../../build/*:." Main
 
 clean-examples:
 	rm -f examples/c/main

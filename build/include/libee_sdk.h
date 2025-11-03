@@ -26,21 +26,65 @@ typedef struct { const char *p; ptrdiff_t n; } _GoString_;
 
 // 配置结构体
 typedef struct {
-    const char* base_url;
-    const char* api_key;
-    int timeout_seconds;
-    int retry_count;
+    const char* server_addr;
+    const char* access_id;
+    const char* access_key;
 } ee_config_t;
 
-// 响应结构体
+// 证书主题
 typedef struct {
-    int status_code;
-    char* body;
-    size_t body_length;
+    const char* common_name;
+    const char** country;
+    int country_len;
+    const char** organization;
+    int organization_len;
+    const char** organizational_unit;
+    int organizational_unit_len;
+    const char** locality;
+    int locality_len;
+    const char** province;
+    int province_len;
+} ee_subject_t;
+
+// 证书请求
+typedef struct {
+    const unsigned char* public_key;
+    size_t public_key_len;
+    const unsigned char* kem_public_key;
+    size_t kem_public_key_len;
+    unsigned int ca_cert_id;
+    unsigned int template_id;
+    ee_subject_t subject;
+} ee_cert_request_t;
+
+// 证书响应
+typedef struct {
+    unsigned char* signer_cert;
+    size_t signer_cert_len;
+    unsigned char* enc_cert;
+    size_t enc_cert_len;
+	unsigned char* hyper_signer_cert;
+	size_t hyper_signer_cert_len;
+	unsigned char* hyper_enc_cert;
+	size_t hyper_enc_cert_len;
+    unsigned char* encrypted_private_key;
+    size_t encrypted_private_key_len;
+    char* error_message;
+} ee_cert_response_t;
+
+// 撤销请求
+typedef struct {
+    const char* serial_number;
+    const char* reason;
+} ee_revoke_request_t;
+
+// 通用响应
+typedef struct {
+    int success;
     char* error_message;
 } ee_response_t;
 
-// 客户端句柄（不透明指针）
+// 客户端句柄
 typedef struct ee_client ee_client_t;
 
 #line 1 "cgo-generated-wrapper"
@@ -101,8 +145,11 @@ extern "C" {
 
 extern ee_client_t* ee_client_create(ee_config_t* config);
 extern void ee_client_destroy(ee_client_t* clientPtr);
-extern ee_response_t* ee_execute_request(ee_client_t* clientPtr, char* method, char* path, char* body);
-extern int ee_health_check(ee_client_t* clientPtr);
+extern ee_cert_response_t* ee_request_certificate(ee_client_t* clientPtr, ee_cert_request_t* req);
+extern ee_cert_response_t* ee_request_certificate_pkcs10(ee_client_t* clientPtr, unsigned char* csr, size_t csrLen);
+extern ee_response_t* ee_revoke_certificate(ee_client_t* clientPtr, ee_revoke_request_t* req);
+extern ee_response_t* ee_confirm_certificate(ee_client_t* clientPtr, unsigned char* certHash, size_t certHashLen, int certReqId);
+extern void ee_cert_response_free(ee_cert_response_t* response);
 extern void ee_response_free(ee_response_t* response);
 
 #ifdef __cplusplus
