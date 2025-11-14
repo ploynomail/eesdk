@@ -1,1 +1,0 @@
-# mvn archetype:generate -DgroupId=com.turingq.eesdk -DartifactId=eesdk-java -DarchetypeArtifactId=maven-archetype-quickstart -DinteractiveMode=false
