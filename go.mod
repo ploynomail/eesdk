@@ -1,4 +1,4 @@
-module ee-sdk
+module github.com/ploynomail/eesdk
 
 go 1.24.0
 
