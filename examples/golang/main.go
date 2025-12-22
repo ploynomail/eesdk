@@ -1,11 +1,9 @@
 package main
 
 import (
-	commonutils "commonprotocol/utils"
 	"crypto/rand"
 	"crypto/x509/pkix"
 	eesdk "ee-sdk/client"
-	"ee-sdk/internal/core/domain"
 	"encoding/asn1"
 	"encoding/base64"
 	"encoding/pem"
@@ -127,7 +125,7 @@ func CreateCSR(id string) {
 		SignatureAlgorithm: x509.PureSm2Hybrid,
 		ExtraExtensions: []pkix.Extension{
 			{
-				Id:       commonutils.OidExtensionKemPublicKey,
+				Id:       eesdk.OidExtensionKemPublicKey,
 				Critical: false,
 				Value:    kemPublickKeyBytes,
 			},
@@ -197,7 +195,7 @@ func ReqKeyWithCSR() {
 }
 
 func DeCryptPrivateKey(encryptedPrivateKeyBytes []byte) {
-	var encryptedValue domain.EncryptedValue
+	var encryptedValue eesdk.EncryptedValue
 	asn1.Unmarshal(encryptedPrivateKeyBytes, &encryptedValue)
 
 	// 使用 liboqs 进行解密
