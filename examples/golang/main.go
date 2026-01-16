@@ -3,7 +3,7 @@ package main
 import (
 	"crypto/rand"
 	"crypto/x509/pkix"
-	eesdk "ee-sdk/client"
+	eesdk "github.com/ploynomail/eesdk/client"
 	"encoding/asn1"
 	"encoding/base64"
 	"encoding/pem"

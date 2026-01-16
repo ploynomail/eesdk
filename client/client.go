@@ -3,8 +3,8 @@ package eesdk
 import (
 	"context"
 	"crypto"
-	"ee-sdk/internal/core/domain"
-	"ee-sdk/internal/core/service"
+	"github.com/ploynomail/eesdk/internal/core/domain"
+	"github.com/ploynomail/eesdk/internal/core/service"
 	"fmt"
 	"time"
 

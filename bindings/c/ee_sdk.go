@@ -70,10 +70,11 @@ typedef struct ee_client ee_client_t;
 import "C"
 
 import (
-	eesdk "ee-sdk/client"
 	"runtime"
 	"sync"
 	"unsafe"
+
+	eesdk "github.com/ploynomail/eesdk/client"
 )
 
 // 全局客户端映射
